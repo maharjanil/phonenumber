@@ -4,11 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Phone Number Finder</title>
-  <!-- Bootstrap CSS -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  >
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body {
       background-color: #f8f9fa;
@@ -26,113 +22,48 @@
 <body>
   <div class="container text-center">
     <h1 class="mb-4">Phone Number Finder</h1>
-
-    <!-- Toggle Button -->
-    <button id="toggleAddContact" class="btn btn-secondary mb-3">Show Add Contact</button>
-
-    <!-- Add New Contact (Initially Hidden) -->
-    <div id="addContactSection" class="mb-4 d-none">
-      <form id="addContactForm">
-        <h5 class="text-start">Add New Contact</h5>
-        <div class="mb-3">
-          <label for="newName" class="form-label">Name:</label>
-          <input
-            type="text"
-            class="form-control"
-            id="newName"
-            placeholder="Enter name"
-            required
-          >
-        </div>
-        <div class="mb-3">
-          <label for="newNumber" class="form-label">Phone Number:</label>
-          <input
-            type="text"
-            class="form-control"
-            id="newNumber"
-            placeholder="Enter phone number"
-            required
-          >
-        </div>
-        <button type="submit" class="btn btn-success">Add Contact</button>
-      </form>
-    </div>
-
-    <!-- Find Contact -->
     <form id="finderForm">
       <h5 class="text-start">Find a Contact</h5>
       <div class="mb-3">
         <label for="nameInput" class="form-label">Enter Name:</label>
-        <input
-          type="text"
-          class="form-control"
-          id="nameInput"
-          placeholder="Type a name"
-          required
-        >
+        <input type="text" class="form-control" id="nameInput" placeholder="Type a name" required>
       </div>
       <button type="submit" class="btn btn-primary">Find Number</button>
     </form>
-
     <div id="result" class="mt-4 alert d-none" role="alert"></div>
   </div>
 
-  <!-- Bootstrap JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // Check if the phone book is already stored in localStorage
-    if (!localStorage.getItem('phoneBook')) {
-      const initialPhoneBook = [
-        { name: "John Doe", number: "123-456-7890" },
-        { name: "Jane Smith", number: "987-654-3210" }
-      ];
-      localStorage.setItem('phoneBook', JSON.stringify(initialPhoneBook));
-    }
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQfW_KZ-Z4dunuF3S6MB4b1FE8yEmG9XlbfyFzXjFrTfaa06L0ZfqKofK-uHJhXfkOjGShblk_uUX8u/pub?gid=0&single=true&output=csv"; // Replace YOUR_SHEET_ID with your actual Sheet ID
 
-    // Fetch the phone book from localStorage
-    function getPhoneBook() {
-      return JSON.parse(localStorage.getItem('phoneBook')) || [];
-    }
+    // Fetch the phone book from the published CSV
+    async function fetchPhoneBook() {
+      try {
+        const response = await fetch(CSV_URL);
+        const data = await response.text();
 
-    // Save the phone book to localStorage
-    function savePhoneBook(phoneBook) {
-      localStorage.setItem('phoneBook', JSON.stringify(phoneBook));
-    }
-
-    // Add Contact Form
-    const addContactForm = document.getElementById('addContactForm');
-    addContactForm.addEventListener('submit', function (event) {
-      event.preventDefault();
-
-      const newName = document.getElementById('newName').value.trim();
-      const newNumber = document.getElementById('newNumber').value.trim();
-
-      if (newName && newNumber) {
-        const phoneBook = getPhoneBook();
-
-        // Check for duplicates
-        if (phoneBook.some(contact => contact.name.toLowerCase() === newName.toLowerCase())) {
-          alert("This name already exists in the phone book!");
-        } else {
-          phoneBook.push({ name: newName, number: newNumber });
-          savePhoneBook(phoneBook);
-          alert("Contact added successfully!");
-        }
-
-        // Clear the form
-        addContactForm.reset();
+        // Parse CSV
+        const rows = data.split("\n").slice(1); // Skip the header row
+        const phoneBook = rows.map(row => {
+          const [name, number] = row.split(",").map(item => item.trim());
+          return { name, number };
+        });
+        return phoneBook;
+      } catch (error) {
+        console.error("Error fetching CSV data:", error);
+        return [];
       }
-    });
+    }
 
     // Finder Form
-    const finderForm = document.getElementById('finderForm');
-    const resultDiv = document.getElementById('result');
+    const finderForm = document.getElementById("finderForm");
+    const resultDiv = document.getElementById("result");
 
-    finderForm.addEventListener('submit', function (event) {
+    finderForm.addEventListener("submit", async function (event) {
       event.preventDefault();
 
-      const nameInput = document.getElementById('nameInput').value.trim().toLowerCase();
-      const phoneBook = getPhoneBook();
+      const nameInput = document.getElementById("nameInput").value.trim().toLowerCase();
+      const phoneBook = await fetchPhoneBook();
 
       const match = phoneBook.find(contact => contact.name.toLowerCase() === nameInput);
 
@@ -144,21 +75,7 @@
         resultDiv.textContent = "Name not found in phone book!";
       }
 
-      resultDiv.classList.remove('d-none');
-    });
-
-    // Toggle Add Contact Section
-    const toggleButton = document.getElementById('toggleAddContact');
-    const addContactSection = document.getElementById('addContactSection');
-
-    toggleButton.addEventListener('click', function () {
-      if (addContactSection.classList.contains('d-none')) {
-        addContactSection.classList.remove('d-none');
-        toggleButton.textContent = "Hide Add Contact";
-      } else {
-        addContactSection.classList.add('d-none');
-        toggleButton.textContent = "Show Add Contact";
-      }
+      resultDiv.classList.remove("d-none");
     });
   </script>
 </body>
