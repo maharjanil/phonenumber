@@ -1,412 +1,109 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phone Directory</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+const SHEET_NAME = "Sheet1"; 
+
+function doGet(e) {
+  const action = e.parameter.action;
+  const query = e.parameter.query || "";
+  const searchNotes = e.parameter.searchNotes !== "false"; 
+  
+  if (action === "search") {
+    return searchDirectory(query, searchNotes);
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({ error: "Invalid action" }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+    const values = sheet.getDataRange().getValues();
     
-    <style>
-        :root {
-            --bg-color: #1a1d29;
-            --card-bg: #24283b;
-            --text-primary: #e2e8f0;
-            --text-secondary: #94a3b8;
-            --accent-color: #6366f1;
-            --accent-hover: #4f46e5;
-            --success-color: #10b981;
-            --success-hover: #059669;
-            --border-color: #2d3748;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-            color: var(--text-primary);
-            min-height: 100vh;
-        }
-
-        .main-container { max-width: 900px; margin: 40px auto; padding: 0 15px; }
-
-        .page-title {
-            font-weight: 700; letter-spacing: -0.5px; margin-bottom: 30px;
-            background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        }
-
-        .card {
-            background-color: var(--card-bg); border: 1px solid var(--border-color);
-            border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-            margin-bottom: 24px; overflow: hidden;
-        }
-
-        .card-header {
-            background-color: rgba(255, 255, 255, 0.03); border-bottom: 1px solid var(--border-color);
-            font-weight: 600; font-size: 1.05rem; padding: 16px 24px; color: var(--text-primary);
-        }
-
-        .form-control {
-            background-color: var(--bg-color); border: 1px solid var(--border-color);
-            color: var(--text-primary); border-radius: 10px; padding: 12px 16px; transition: all 0.2s ease;
-        }
-        .form-control::placeholder { color: var(--text-secondary); }
-        .form-control:focus {
-            background-color: var(--bg-color); border-color: var(--accent-color);
-            color: var(--text-primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
-        }
-
-        .form-label { color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; margin-bottom: 6px; }
-
-        .form-check-input { background-color: var(--bg-color); border: 1px solid var(--border-color); cursor: pointer; }
-        .form-check-input:checked { background-color: var(--accent-color); border-color: var(--accent-color); }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent-color) 0%, var(--accent-hover) 100%);
-            border: none; border-radius: 10px; padding: 12px 24px; font-weight: 600;
-        }
-        .btn-primary:hover {
-            background: linear-gradient(135deg, var(--accent-hover) 0%, #4338ca 100%);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4); color: white;
-        }
-
-        .btn-outline-primary {
-            border: 1px dashed var(--accent-color); color: var(--accent-color);
-            border-radius: 10px; padding: 12px; font-weight: 600;
-        }
-        .btn-outline-primary:hover {
-            background-color: rgba(99, 102, 241, 0.1); border-color: var(--accent-color); color: var(--accent-color);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, var(--success-color) 0%, var(--success-hover) 100%);
-            border: none; border-radius: 10px; padding: 12px 24px; font-weight: 600;
-        }
-        .btn-success:hover {
-            background: linear-gradient(135deg, var(--success-hover) 0%, #047857 100%);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4); color: white;
-        }
-
-        .btn-sm { border-radius: 8px; padding: 6px 12px; }
-
-        .table { color: #94a3b8; margin-bottom: 0; }
-        .table th {
-            color: #94a3b8; font-weight: 600; font-size: 0.85rem; text-transform: uppercase;
-            letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); padding: 16px;
-        }
-        .table td { border-bottom: 1px solid var(--border-color); padding: 16px; vertical-align: middle; }
-        .table-hover tbody tr:hover { background-color: rgba(255, 255, 255, 0.02); }
-
-        .contact-name { color: #60a5fa !important; font-weight: 600; }
-        .contact-notes { color: #94a3b8 !important; }
-        .contact-date { color: #64748b !important; }
-
-        .badge-phone {
-            background-color: rgba(167, 139, 250, 0.15); color: #a78bfa !important; 
-            border: 1px solid rgba(167, 139, 250, 0.3); font-weight: 500;
-            padding: 6px 12px; border-radius: 6px; text-decoration: none;
-            display: inline-block; width: max-content; transition: all 0.2s ease;
-        }
-        .badge-phone:hover {
-            background-color: rgba(167, 139, 250, 0.3); color: #c4b5fd !important; transform: translateY(-1px);
-        }
-
-        .btn-edit-action {
-            border: 1px solid var(--accent-color); color: var(--accent-color); background: transparent;
-            border-radius: 8px; padding: 6px 12px; font-size: 0.875rem; transition: all 0.2s ease;
-        }
-        .btn-edit-action:hover { background-color: rgba(99, 102, 241, 0.15); color: #818cf8; border-color: #818cf8; }
-
-        .loading-spinner { display: none; }
-        .collapse { transition: height 0.3s ease; }
-
-        .modal-content { background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-primary); }
-        .modal-header { border-bottom: 1px solid var(--border-color); }
-    </style>
-</head>
-<body>
-
-<div class="container main-container">
-    <h2 class="text-center page-title"><i class="bi bi-telephone-fill me-2"></i>Phone Directory</h2>
-
-    <div class="card">
-        <div class="card-header d-flex align-items-center"><i class="bi bi-search me-2"></i> Search Contacts</div>
-        <div class="card-body p-4">
-            <div class="input-group mb-3">
-                <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="Type a name, phone, or note...">
-                <button class="btn btn-primary" type="button" onclick="searchData()">
-                    <span class="spinner-border spinner-border-sm loading-spinner me-2" id="searchSpinner" role="status"></span> Search
-                </button>
-            </div>
-            <div class="form-check mb-3">
-                <input class="form-check-input" type="checkbox" id="searchNotesCheck" checked>
-                <label class="form-check-label text-secondary" for="searchNotesCheck">Include notes in search</label>
-            </div>
-            <div id="searchResults">
-                <p class="text-secondary text-center py-3"><i class="bi bi-search me-2"></i>Please enter a name, phone number, or note above to search.</p>
-            </div>
-        </div>
-    </div>
-
-    <button class="btn btn-outline-primary w-100 mb-3 d-flex align-items-center justify-content-center" type="button" data-bs-toggle="collapse" data-bs-target="#addContactCollapse" aria-expanded="false" onclick="toggleAddIcon(this)">
-        <i class="bi bi-plus-circle me-2 fs-5"></i> <span>Add New Contact</span>
-    </button>
-
-    <div class="collapse" id="addContactCollapse">
-        <div class="card">
-            <div class="card-header d-flex align-items-center text-success"><i class="bi bi-person-plus-fill me-2"></i> Add New Contact</div>
-            <div class="card-body p-4">
-                <form id="addForm" onsubmit="addData(event)">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="newName" class="form-label">Full Name</label>
-                            <input type="text" class="form-control" id="newName" placeholder="e.g. John Doe" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="newPhone" class="form-label">Phone Number 1</label>
-                            <input type="tel" class="form-control" id="newPhone" placeholder="e.g. +1 234 567 890" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="newPhone2" class="form-label">Phone Number 2 <span class="text-secondary fw-normal">(Optional)</span></label>
-                            <input type="tel" class="form-control" id="newPhone2" placeholder="e.g. +1 987 654 321">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="newNotes" class="form-label">Notes <span class="text-secondary fw-normal">(Optional)</span></label>
-                            <input type="text" class="form-control" id="newNotes" placeholder="e.g. Office, Home">
-                        </div>
-                        <div class="col-12 text-end mt-4">
-                            <button type="button" class="btn btn-secondary me-2" data-bs-toggle="collapse" data-bs-target="#addContactCollapse">Cancel</button>
-                            <button type="submit" class="btn btn-success" id="addBtn">
-                                <span class="spinner-border spinner-border-sm loading-spinner me-2" id="addSpinner" role="status"></span>
-                                <i class="bi bi-save me-1"></i> Save Contact
-                            </button>
-                        </div>
-                    </div>
-                </form>
-                <div id="addMessage" class="mt-3"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Edit Modal -->
-<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit Contact</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editForm" onsubmit="saveEdit(event)">
-                    <input type="hidden" id="editOriginalName">
-                    <input type="hidden" id="editOriginalPhone">
-                    <div class="mb-3">
-                        <label for="editName" class="form-label">Full Name</label>
-                        <input type="text" class="form-control" id="editName" required>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-md-6 mb-3">
-                            <label for="editPhone" class="form-label">Phone Number 1</label>
-                            <input type="tel" class="form-control" id="editPhone" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="editPhone2" class="form-label">Phone Number 2 <span class="text-secondary fw-normal">(Optional)</span></label>
-                            <input type="tel" class="form-control" id="editPhone2">
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editNotes" class="form-label">Notes <span class="text-secondary fw-normal">(Optional)</span></label>
-                        <input type="text" class="form-control" id="editNotes">
-                    </div>
-                    <div class="text-end mt-4">
-                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary" id="editBtn">
-                            <span class="spinner-border spinner-border-sm loading-spinner me-2" id="editSpinner" role="status"></span>
-                            <i class="bi bi-check-lg me-1"></i> Update
-                        </button>
-                    </div>
-                </form>
-                <div id="editMessage" class="mt-3"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-<script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwkAgugklwBOMe6IbQZlLECVwQaRXZeoNdmhnC3Pe9YjurCswD6KW6Ggp--cVZVpnrZ/exec";
-    let currentSearchQuery = ""; 
-
-    function toggleAddIcon(btn) {
-        const icon = btn.querySelector('i');
-        setTimeout(() => {
-            if (btn.getAttribute('aria-expanded') === 'true') {
-                icon.classList.replace('bi-plus-circle', 'bi-dash-circle');
-            } else {
-                icon.classList.replace('bi-dash-circle', 'bi-plus-circle');
-            }
-        }, 50);
+    if (data.action === "add") {
+      const dateAdded = new Date().toLocaleString();
+      // Columns: Name(1), Phone(2), Notes(3), Date(4), Phone2(5)
+      sheet.appendRow([data.name, data.phone, data.notes, dateAdded, data.phone2 || ""]);
+      
+      return ContentService.createTextOutput(JSON.stringify({ 
+        success: true, 
+        message: "Contact added successfully!" 
+      })).setMimeType(ContentService.MimeType.JSON);
     }
-
-    async function searchData() {
-        const query = document.getElementById('searchInput').value.trim();
-        const searchNotes = document.getElementById('searchNotesCheck').checked;
-        const resultsDiv = document.getElementById('searchResults');
-        const spinner = document.getElementById('searchSpinner');
-
-        currentSearchQuery = query;
-
-        if (!query) {
-            resultsDiv.innerHTML = `<p class="text-secondary text-center py-3"><i class="bi bi-search me-2"></i>Please enter a name, phone number, or note above to search.</p>`;
-            return;
-        }
-
-        spinner.style.display = 'inline-block';
-        resultsDiv.innerHTML = ''; 
-
-        try {
-            const response = await fetch(`${GAS_URL}?action=search&query=${encodeURIComponent(query)}&searchNotes=${searchNotes}`);
-            const contentType = response.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) throw new Error("Permission denied.");
-
-            const data = await response.json();
-            spinner.style.display = 'none';
-
-            if (data.success && data.results.length > 0) {
-                let html = `<div class="table-responsive"><table class="table table-hover align-middle"><thead><tr>
-                    <th>Name</th><th>Phone</th><th>Notes</th><th>Date Added</th><th class="text-end">Actions</th></tr></thead><tbody>`;
-                
-                data.results.forEach(row => {
-                    const dateStr = row.date ? new Date(row.date).toLocaleDateString() : 'N/A';
-                    const safeName = row.name.toString().replace(/"/g, '&quot;');
-                    const safePhone = row.phone.toString().replace(/"/g, '&quot;');
-                    const safePhone2 = (row.phone2 || "").toString().replace(/"/g, '&quot;');
-                    const safeNotes = (row.notes || "").toString().replace(/"/g, '&quot;');
-
-                    let phoneHtml = `<a href="tel:${row.phone}" class="badge-phone d-block mb-1" title="Click to call"><i class="bi bi-telephone me-1"></i>${row.phone}</a>`;
-                    if (row.phone2) {
-                        phoneHtml += `<a href="tel:${row.phone2}" class="badge-phone d-block" title="Click to call"><i class="bi bi-telephone me-1"></i>${row.phone2}</a>`;
-                    }
-
-                    html += `<tr>
-                        <td class="contact-name">${row.name}</td>
-                        <td>${phoneHtml}</td>
-                        <td class="contact-notes">${row.notes || '<span class="fst-italic">No notes</span>'}</td>
-                        <td class="contact-date">${dateStr}</td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-edit-action" onclick="openEditModal('${safeName}', '${safePhone}', '${safePhone2}', '${safeNotes}')">
-                                <i class="bi bi-pencil"></i> Edit
-                            </button>
-                        </td>
-                    </tr>`;
-                });
-                
-                html += `</tbody></table></div>`;
-                html = `<p class="text-secondary mb-2 small"><i class="bi bi-list-ul me-1"></i> Found ${data.results.length} contact(s)</p>` + html;
-                resultsDiv.innerHTML = html;
-            } else {
-                resultsDiv.innerHTML = `<p class="text-secondary text-center py-3"><i class="bi bi-inbox me-2"></i>No contacts found matching "${query}".</p>`;
-            }
-        } catch (error) {
-            spinner.style.display = 'none';
-            resultsDiv.innerHTML = `<p class="text-danger text-center py-3"><i class="bi bi-exclamation-triangle me-2"></i>Error: ${error.message}</p>`;
-        }
-    }
-
-    function openEditModal(name, phone, phone2, notes) {
-        document.getElementById('editOriginalName').value = name;
-        document.getElementById('editOriginalPhone').value = phone;
-        document.getElementById('editName').value = name;
-        document.getElementById('editPhone').value = phone;
-        document.getElementById('editPhone2').value = phone2;
-        document.getElementById('editNotes').value = notes;
-        document.getElementById('editMessage').innerHTML = '';
-        new bootstrap.Modal(document.getElementById('editModal')).show();
-    }
-
-    async function saveEdit(event) {
-        event.preventDefault();
-        const payload = { 
-            action: "edit", 
-            originalName: document.getElementById('editOriginalName').value, 
-            originalPhone: document.getElementById('editOriginalPhone').value,
-            newName: document.getElementById('editName').value.trim(), 
-            newPhone: document.getElementById('editPhone').value.trim(), 
-            newPhone2: document.getElementById('editPhone2').value.trim(),
-            newNotes: document.getElementById('editNotes').value.trim()
-        };
+    
+    if (data.action === "edit") {
+      let rowIndex = -1;
+      const origName = data.originalName.toString().trim().toLowerCase();
+      const origPhone = data.originalPhone.toString().trim().toLowerCase();
+      
+      for (let i = 1; i < values.length; i++) {
+        const rowName = values[i][0].toString().trim().toLowerCase();
+        const rowPhone = values[i][1].toString().trim().toLowerCase();
         
-        const editBtn = document.getElementById('editBtn');
-        const spinner = document.getElementById('editSpinner');
-        const messageDiv = document.getElementById('editMessage');
-
-        spinner.style.display = 'inline-block'; editBtn.disabled = true; messageDiv.innerHTML = '';
-
-        try {
-            const response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
-            const data = await response.json();
-            spinner.style.display = 'none'; editBtn.disabled = false;
-
-            if (data.success) {
-                messageDiv.innerHTML = `<div class="alert alert-success d-flex align-items-center"><i class="bi bi-check-circle-fill me-2"></i> ${data.message}</div>`;
-                setTimeout(() => { 
-                    bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
-                    if (currentSearchQuery) searchData();
-                }, 1500);
-            } else {
-                messageDiv.innerHTML = `<div class="alert alert-danger d-flex align-items-center"><i class="bi bi-exclamation-circle-fill me-2"></i> Error: ${data.error}</div>`;
-            }
-        } catch (error) {
-            spinner.style.display = 'none'; editBtn.disabled = false;
-            messageDiv.innerHTML = `<div class="alert alert-danger d-flex align-items-center"><i class="bi bi-exclamation-circle-fill me-2"></i> Failed to update.</div>`;
+        if (rowName === origName && rowPhone === origPhone) {
+          rowIndex = i + 1; 
+          break;
         }
-    }
-
-    async function addData(event) {
-        event.preventDefault();
-        const payload = { 
-            action: "add", 
-            name: document.getElementById('newName').value.trim(), 
-            phone: document.getElementById('newPhone').value.trim(), 
-            phone2: document.getElementById('newPhone2').value.trim(),
-            notes: document.getElementById('newNotes').value.trim() 
-        };
+      }
+      
+      if (rowIndex !== -1) {
+        sheet.getRange(rowIndex, 1).setValue(data.newName);
+        sheet.getRange(rowIndex, 2).setValue(data.newPhone);
+        sheet.getRange(rowIndex, 3).setValue(data.newNotes);
+        sheet.getRange(rowIndex, 5).setValue(data.newPhone2 || ""); 
         
-        const addBtn = document.getElementById('addBtn');
-        const spinner = document.getElementById('addSpinner');
-        const messageDiv = document.getElementById('addMessage');
-
-        spinner.style.display = 'inline-block'; addBtn.disabled = true; messageDiv.innerHTML = '';
-
-        try {
-            const response = await fetch(GAS_URL, { method: "POST", body: JSON.stringify(payload) });
-            const data = await response.json();
-            spinner.style.display = 'none'; addBtn.disabled = false;
-
-            if (data.success) {
-                messageDiv.innerHTML = `<div class="alert alert-success d-flex align-items-center"><i class="bi bi-check-circle-fill me-2"></i> ${data.message}</div>`;
-                document.getElementById('addForm').reset();
-                setTimeout(() => { 
-                    messageDiv.innerHTML = ''; 
-                    new bootstrap.Collapse(document.getElementById('addContactCollapse'), { toggle: false }).hide();
-                }, 2000);
-            } else {
-                messageDiv.innerHTML = `<div class="alert alert-danger d-flex align-items-center"><i class="bi bi-exclamation-circle-fill me-2"></i> Error: ${data.error}</div>`;
-            }
-        } catch (error) {
-            spinner.style.display = 'none'; addBtn.disabled = false;
-            messageDiv.innerHTML = `<div class="alert alert-danger d-flex align-items-center"><i class="bi bi-exclamation-circle-fill me-2"></i> Failed to save.</div>`;
-        }
+        return ContentService.createTextOutput(JSON.stringify({ 
+          success: true, 
+          message: "Contact updated successfully!" 
+        })).setMimeType(ContentService.MimeType.JSON);
+      } else {
+        return ContentService.createTextOutput(JSON.stringify({ 
+          success: false, 
+          error: "Contact not found." 
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
     }
+    
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ 
+      success: false, 
+      error: error.toString() 
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
-    document.getElementById('searchInput').addEventListener('keypress', e => { if (e.key === 'Enter') searchData(); });
-    document.getElementById('searchInput').addEventListener('input', e => {
-        if (e.target.value.trim() === "") {
-            document.getElementById('searchResults').innerHTML = `<p class="text-secondary text-center py-3"><i class="bi bi-search me-2"></i>Please enter a name, phone number, or note above to search.</p>`;
-        }
-    });
-</script>
-</body>
-</html>
+function searchDirectory(query, searchNotes) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  const data = sheet.getDataRange().getValues();
+  const results = [];
+  const searchQuery = query.toString().toLowerCase().trim();
+  
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[0] && !row[1]) continue; 
+    
+    const name = row[0].toString().toLowerCase();
+    const phone1 = row[1].toString().toLowerCase();
+    const notes = row[2] ? row[2].toString().toLowerCase() : "";
+    const phone2 = row[4] ? row[4].toString().toLowerCase() : ""; 
+    
+    let isMatch = name.includes(searchQuery) || phone1.includes(searchQuery) || phone2.includes(searchQuery);
+    if (searchNotes) {
+      isMatch = isMatch || notes.includes(searchQuery);
+    }
+    
+    if (isMatch) {
+      results.push({
+        name: row[0],
+        phone: row[1],
+        phone2: row[4] || "",
+        notes: row[2],
+        date: row[3]
+      });
+    }
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({ 
+    success: true, 
+    results: results 
+  })).setMimeType(ContentService.MimeType.JSON);
+}
