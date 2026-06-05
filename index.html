@@ -46,15 +46,6 @@
         .collapse { transition: height 0.3s ease; }
         .modal-content { background-color: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-primary); }
         .modal-header { border-bottom: 1px solid var(--border-color); }
-        .search-wrapper { position: relative; }
-        .search-dropdown { position: absolute; top: 100%; left: 0; right: 0; background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; margin-top: 8px; max-height: 320px; overflow-y: auto; z-index: 1050; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5); display: none; }
-        .search-dropdown.show { display: block; }
-        .dropdown-item-custom { padding: 12px 16px; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background 0.15s ease; display: flex; justify-content: space-between; align-items: center; }
-        .dropdown-item-custom:last-child { border-bottom: none; }
-        .dropdown-item-custom:hover { background-color: rgba(99, 102, 241, 0.15); }
-        .dropdown-item-name { color: #60a5fa; font-weight: 600; font-size: 0.95rem; }
-        .dropdown-item-phone { color: #a78bfa; font-size: 0.85rem; font-weight: 500; }
-        .dropdown-empty { padding: 16px; text-align: center; color: var(--text-secondary); font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -65,14 +56,11 @@
     <div class="card">
         <div class="card-header d-flex align-items-center"><i class="bi bi-search me-2"></i> Search Contacts</div>
         <div class="card-body p-4">
-            <div class="search-wrapper mb-3">
-                <div class="input-group">
-                    <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="Start typing a name, phone, or note..." autocomplete="off">
-                    <button class="btn btn-primary" type="button" onclick="searchData()">
-                        <span class="spinner-border spinner-border-sm loading-spinner me-2" id="searchSpinner" role="status"></span> Search
-                    </button>
-                </div>
-                <div id="searchDropdown" class="search-dropdown"></div>
+            <div class="input-group mb-3">
+                <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="Type a name, phone, or note and press Search..." autocomplete="off">
+                <button class="btn btn-primary" type="button" onclick="searchData()">
+                    <span class="spinner-border spinner-border-sm loading-spinner me-2" id="searchSpinner" role="status"></span> Search
+                </button>
             </div>
             <div class="form-check mb-3">
                 <input class="form-check-input" type="checkbox" id="searchNotesCheck" checked>
@@ -197,9 +185,8 @@
     const GAS_URL = "https://script.google.com/macros/s/AKfycbwkAgugklwBOMe6IbQZlLECVwQaRXZeoNdmhnC3Pe9YjurCswD6KW6Ggp--cVZVpnrZ/exec";
     
     let currentSearchQuery = ""; 
-    let searchTimeout; 
     let pendingEditData = null; 
-    let verifiedAdminPassword = ""; // Stores password temporarily after successful backend verification
+    let verifiedAdminPassword = ""; 
 
     function toggleAddIcon(btn) {
         const icon = btn.querySelector('i');
@@ -212,64 +199,6 @@
         }, 50);
     }
 
-    // --- LIVE DROPDOWN LOGIC ---
-    const searchInput = document.getElementById('searchInput');
-    const dropdown = document.getElementById('searchDropdown');
-
-    searchInput.addEventListener('input', function(e) {
-        const query = e.target.value.trim();
-        clearTimeout(searchTimeout);
-        if (!query) {
-            hideDropdown();
-            document.getElementById('searchResults').innerHTML = `<p class="text-secondary text-center py-3"><i class="bi bi-search me-2"></i>Please enter a name, phone number, or note above to search.</p>`;
-            return;
-        }
-        searchTimeout = setTimeout(() => { fetchDropdownData(query); }, 300);
-    });
-
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.search-wrapper')) hideDropdown();
-    });
-
-    async function fetchDropdownData(query) {
-        const searchNotes = document.getElementById('searchNotesCheck').checked;
-        try {
-            const response = await fetch(`${GAS_URL}?action=search&query=${encodeURIComponent(query)}&searchNotes=${searchNotes}`);
-            const contentType = response.headers.get("content-type");
-            if (!contentType || !contentType.includes("application/json")) throw new Error("Permission denied.");
-            const data = await response.json();
-            if (data.success && data.results.length > 0) showDropdown(data.results);
-            else showDropdown([]);
-        } catch (error) { hideDropdown(); }
-    }
-
-    function showDropdown(results) {
-        dropdown.innerHTML = '';
-        if (results.length === 0) {
-            dropdown.innerHTML = `<div class="dropdown-empty"><i class="bi bi-inbox me-2"></i>No matches found</div>`;
-        } else {
-            results.slice(0, 8).forEach(row => {
-                const item = document.createElement('div');
-                item.className = 'dropdown-item-custom';
-                let phoneDisplay = row.phone;
-                if (row.phone2) phoneDisplay += ` / ${row.phone2}`;
-                item.innerHTML = `<span class="dropdown-item-name">${row.name}</span><span class="dropdown-item-phone"><i class="bi bi-telephone me-1"></i>${phoneDisplay}</span>`;
-                item.addEventListener('click', () => {
-                    searchInput.value = row.name;
-                    hideDropdown();
-                    searchData();
-                });
-                dropdown.appendChild(item);
-            });
-        }
-        dropdown.classList.add('show');
-    }
-
-    function hideDropdown() {
-        dropdown.classList.remove('show');
-        dropdown.innerHTML = '';
-    }
-
     async function searchData() {
         const query = document.getElementById('searchInput').value.trim();
         const searchNotes = document.getElementById('searchNotesCheck').checked;
@@ -277,7 +206,6 @@
         const spinner = document.getElementById('searchSpinner');
 
         currentSearchQuery = query;
-        hideDropdown();
 
         if (!query) {
             resultsDiv.innerHTML = `<p class="text-secondary text-center py-3"><i class="bi bi-search me-2"></i>Please enter a name, phone number, or note above to search.</p>`;
@@ -366,7 +294,7 @@
             const data = await response.json();
 
             if (data.success) {
-                verifiedAdminPassword = input; // Store temporarily for the edit request
+                verifiedAdminPassword = input; 
                 const pwdModalEl = document.getElementById('passwordModal');
                 const pwdModal = bootstrap.Modal.getInstance(pwdModalEl);
                 pwdModal.hide();
@@ -402,7 +330,7 @@
         event.preventDefault();
         const payload = { 
             action: "edit", 
-            password: verifiedAdminPassword, // 🔒 Uses the verified password
+            password: verifiedAdminPassword, 
             originalName: document.getElementById('editOriginalName').value, 
             originalPhone: document.getElementById('editOriginalPhone').value,
             newName: document.getElementById('editName').value.trim(), 
@@ -474,7 +402,13 @@
         }
     }
 
-    searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') { e.preventDefault(); searchData(); } });
+    // Allow pressing "Enter" to trigger search
+    document.getElementById('searchInput').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') { 
+            e.preventDefault(); 
+            searchData(); 
+        }
+    });
 </script>
 </body>
 </html>
