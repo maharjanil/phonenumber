@@ -409,6 +409,13 @@
             searchData(); 
         }
     });
+
+    // ✅ NEW: Instantly clear the list if the user deletes the text in the search bar
+    document.getElementById('searchInput').addEventListener('input', function (e) {
+        if (e.target.value.trim() === "") {
+            document.getElementById('searchResults').innerHTML = `<p class="text-secondary text-center py-3"><i class="bi bi-search me-2"></i>Please enter a name, phone number, or note above to search.</p>`;
+        }
+    });
 </script>
 </body>
 </html>
